@@ -1,0 +1,337 @@
+# Codebase Analysis Tool Design
+
+## Overview
+
+This document outlines the design for a console application that will use a local Ollama LLM (llama3.2) on an air-gapped system to analyze a complex codebase consisting of:
+- A custom browser (Node.js/JavaScript/React frontend, Python backend)
+- A custom OS (Rust, C, and Assembly)
+
+The tool will allow users to "ask the codebase" questions and receive accurate responses that leverage the codebase itself as the source of information.
+
+## System Architecture
+
+```
+┌───────────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│                   │     │                  │     │                 │
+│  Code Indexing    │────▶│  Vector Database │────▶│  Query Engine   │
+│  & Processing     │     │  (Embeddings)    │     │                 │
+│                   │     │                  │     │                 │
+└───────────────────┘     └──────────────────┘     └────────┬────────┘
+                                                            │
+                                                            ▼
+                  ┌───────────────────┐     ┌─────────────────────────┐
+                  │                   │     │                         │
+                  │  Conversation     │◀───▶│  Ollama LLM Interface   │
+                  │  Management       │     │  (llama3.2)             │
+                  │                   │     │                         │
+                  └───────────────────┘     └─────────────────────────┘
+```
+
+## Key Components
+
+### 1. Code Indexing & Processing
+
+**Purpose:** Scan, parse, and process the codebase files to create a searchable representation.
+
+**Components:**
+- File system traversal
+- Language-specific parsers
+- Contextual chunking module
+- Code relationship mapping
+
+**Implementation:**
+- Create parsers for each language type (JavaScript, Python, Rust, C, Assembly)
+- Extract functions, classes, imports, and dependencies
+- Generate metadata about file relationships
+- Process code comments and documentation
+
+### 2. Vector Database
+
+**Purpose:** Store code chunks and their relationships as vector embeddings for semantic search.
+
+**Components:**
+- Embedding generation module
+- Vector storage solution (FAISS or similar)
+- Metadata index
+
+**Implementation:**
+- Use a lightweight embedding model compatible with air-gapped environment
+- Create vector representations of code chunks
+- Build efficient index for similarity search
+- Store metadata to reconstruct context
+
+### 3. Query Engine
+
+**Purpose:** Transform user questions into effective searches against the vector database.
+
+**Components:**
+- Query preprocessing
+- Vector search implementation
+- Result ranking
+- Context assembly
+
+**Implementation:**
+- Clean and process user queries
+- Perform semantic search on embeddings
+- Rank and filter results by relevance
+- Assemble context window with relevant code snippets
+
+### 4. Ollama LLM Interface
+
+**Purpose:** Communicate with the local Ollama instance running llama3.2.
+
+**Components:**
+- Ollama API client
+- Prompt engineering system
+- Response parsing
+
+**Implementation:**
+- Create a client for the Ollama API
+- Build effective prompts that include code context
+- Set appropriate parameters for the model
+- Parse and process model responses
+
+### 5. Conversation Management
+
+**Purpose:** Maintain conversation context and manage the interaction flow.
+
+**Components:**
+- Session management
+- Conversation history
+- Follow-up handling
+
+**Implementation:**
+- Store and manage conversation history
+- Provide context from previous exchanges
+- Handle follow-up questions about previous results
+
+## Implementation Plan
+
+### Phase 1: Code Indexing Framework
+
+1. Create a file system crawler that identifies relevant code files
+2. Implement language-specific parsers that extract code structure
+3. Build chunking logic that preserves semantic units
+4. Develop metadata extraction to capture relationships between files
+5. Design efficient storage format for indexed data
+
+### Phase 2: Vector Database & Search
+
+1. Implement or integrate a lightweight embedding model
+2. Create vector representations of code chunks
+3. Build vector storage and indexing system
+4. Implement efficient vector search algorithms
+5. Design relevance scoring mechanism
+
+### Phase 3: LLM Integration
+
+1. Create Ollama API client
+2. Design prompt templates for code understanding
+3. Implement context window assembly
+4. Build response generation and parsing
+5. Optimize for the specific capabilities of llama3.2
+
+### Phase 4: Console Application
+
+1. Design command-line interface
+2. Implement conversation flow
+3. Create input/output handling
+4. Add error handling and recovery
+5. Build logging and debugging features
+
+### Phase 5: Testing & Optimization
+
+1. Test with sample codebases
+2. Optimize for performance on air-gapped machine
+3. Fine-tune prompt engineering
+4. Improve response quality
+5. Create documentation and examples
+
+## Technical Implementation Details
+
+### Code File Formats
+
+```python
+# Example structure for storing file metadata
+file_metadata = {
+    "path": "src/browser/components/navigation.jsx",
+    "language": "javascript",
+    "imports": ["react", "../utils/routing.js", "../styles/nav.css"],
+    "exports": ["NavigationBar", "NavLink"],
+    "functions": ["handleNavigation", "renderLinks"],
+    "classes": ["NavigationBar"],
+    "dependencies": ["routing.js", "auth.js"],
+    "last_modified": "2023-05-15T14:32:45Z"
+}
+
+# Example structure for a code chunk
+code_chunk = {
+    "id": "chunk_12345",
+    "file_path": "src/browser/components/navigation.jsx",
+    "start_line": 25,
+    "end_line": 42,
+    "code": "function handleNavigation(route) {\n  // Implementation...\n}",
+    "context": "Inside NavigationBar class, handles user navigation events",
+    "references": ["utils/routing.js:navigateTo"],
+    "embedding": [0.123, 0.456, 0.789, ...], # Vector representation
+    "metadata": {...}
+}
+```
+
+### Vector Search Implementation
+
+```python
+# Pseudocode for vector search
+def search_codebase(query, top_k=5):
+    # 1. Process query
+    cleaned_query = preprocess(query)
+    
+    # 2. Generate query embedding
+    query_embedding = generate_embedding(cleaned_query)
+    
+    # 3. Perform vector search
+    similar_chunks = vector_db.search(query_embedding, top_k=top_k)
+    
+    # 4. Enhance with structural information
+    enriched_results = enhance_with_context(similar_chunks)
+    
+    # 5. Assemble context window
+    context = assemble_context(enriched_results, query)
+    
+    return context
+```
+
+### Prompt Engineering
+
+```
+SYSTEM PROMPT:
+You are a Code Assistant with deep knowledge of the provided codebase.
+Your task is to answer questions about the code by referring directly to the provided context.
+Always base your answers on the code provided and indicate when information might be missing.
+When explaining how components work together, be specific about file relationships.
+
+CONTEXT:
+{relevant_code_chunks}
+{file_relationships}
+
+USER QUERY:
+{user_question}
+
+CONVERSATION HISTORY:
+{conversation_history}
+```
+
+## Data Flow
+
+1. **Initial Indexing:**
+   - Scan all code files in specified directories
+   - Parse each file based on its language
+   - Extract semantic units and relationship information
+   - Generate embeddings for each code chunk
+   - Store in the vector database for future queries
+
+2. **Query Processing:**
+   - User inputs a question about the codebase
+   - Query is preprocessed and converted to an embedding
+   - Similar code chunks are retrieved from the vector database
+   - Code context is assembled with relevant snippets
+   - Prompt is constructed with code context and query
+
+3. **Response Generation:**
+   - Prompt is sent to Ollama LLM (llama3.2)
+   - Model generates a response based on the context
+   - Response is post-processed and formatted
+   - Result is displayed to the user
+   - Conversation history is updated
+
+4. **Follow-up Handling:**
+   - User may ask follow-up questions
+   - Previous context is considered for continuity
+   - New relevant code chunks may be retrieved
+   - Conversation context is maintained throughout session
+
+## Technology Stack
+
+### Core Technologies
+
+- **Language:** Python 3.9+ (for main application)
+- **Embedding Model:** SentenceTransformers (offline version) or similar
+- **Vector Database:** FAISS (Facebook AI Similarity Search) or Chroma (embedded mode)
+- **LLM Interface:** Ollama API client
+- **Parsing:** TreeSitter or language-specific parsers
+- **UI:** Rich or similar TUI library for console interface
+
+### Minimal Dependencies
+
+To ensure compatibility with air-gapped environment:
+- All dependencies must be pip-installable from offline packages
+- No cloud services or external APIs required
+- Lightweight enough to run on standard laptop hardware
+- Compatible with Debian Linux
+
+## Considerations for Air-Gapped Environment
+
+1. **Package all dependencies** for offline installation
+2. **Minimize resource usage** to work within hardware constraints
+3. **Provide clear documentation** for transfer to air-gapped system
+4. **Include diagnostics tools** for troubleshooting without internet
+5. **Optimize embedding model size** for reasonable performance
+
+## Usage Examples
+
+```bash
+# Index a codebase (one-time operation)
+$ codebase-assistant index --path /path/to/custom-browser --languages js,py,jsx
+
+# Start interactive session
+$ codebase-assistant query
+
+# Example interaction
+> How does the navigation system in the browser connect to the backend?
+[Assistant provides detailed explanation with references to specific code files]
+
+> What modules are responsible for handling user authentication?
+[Assistant explains authentication flow with code references]
+
+# Save session for later reference
+$ codebase-assistant save-session --output browser-analysis.json
+
+# Load specific codebase context
+$ codebase-assistant load --context custom-os
+```
+
+## Deployment Steps
+
+1. Develop and test on connected Debian machine
+2. Create package with all dependencies bundled
+3. Transfer package to air-gapped machine via approved media
+4. Install on air-gapped machine following documented procedure
+5. Verify Ollama setup with llama3.2 model
+6. Run initial indexing of codebase
+7. Begin interactive analysis
+
+## Potential Enhancements
+
+- **Code visualization:** Generate diagrams of code relationships
+- **Diff analysis:** Compare different versions of the codebase
+- **Custom fine-tuning:** Adapt LLM to specific codebase terminology
+- **Plugin system:** Allow extending with custom analyzers
+- **Multi-codebase support:** Switch between different projects
+- **Export functionality:** Generate documentation from analysis
+
+## Key Challenges and Solutions
+
+1. **Challenge:** Accurate code parsing across multiple languages
+   **Solution:** Use specialized parsers for each language; fall back to regex for assembly
+
+2. **Challenge:** Maintaining context with limited LLM context window
+   **Solution:** Implement smart chunking and context assembly strategies
+
+3. **Challenge:** Resource constraints on air-gapped machine
+   **Solution:** Optimize embedding model size and implement progressive loading
+
+4. **Challenge:** Accuracy of responses
+   **Solution:** Include confidence scores and direct references to source code
+
+5. **Challenge:** Handling large codebases
+   **Solution:** Implement incremental indexing and modular analysis

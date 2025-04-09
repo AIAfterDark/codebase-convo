@@ -1,0 +1,20 @@
+# Codebase Convo - Development Tracking Log
+
+## 2025-04-09
+- Initialized Git repository for version control
+- Created basic project structure with the following components:
+  - src/indexing: Code indexing & processing module
+  - src/vector_db: Vector database for embeddings
+  - src/query_engine: Query processing and search
+  - src/llm_interface: Ollama LLM integration
+  - src/conversation: Conversation management
+  - tests: Unit and integration tests
+- Implemented main.py as application entry point
+- Created README.md with project documentation
+- Implemented core modules:
+  - CodebaseIndexer for parsing and chunking code files
+  - VectorStore for managing embeddings and similarity search
+  - QueryEngine for processing user queries
+  - OllamaClient for interfacing with the LLM
+  - ConversationManager for handling user interactions
+- Added requirements.txt with dependencies
