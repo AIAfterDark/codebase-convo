@@ -48,9 +48,12 @@ class CodebaseIndexer:
         self.ignored_dirs = {".git", "node_modules", "venv", "__pycache__", "dist", "build"}
         self.ignored_files = {"package-lock.json", "yarn.lock"}
 
-    def index_codebase(self) -> None:
+    def index_codebase(self) -> List[Dict[str, Any]]:
         """
         Index the entire codebase by traversing files and processing them.
+
+        Returns:
+            List of code chunks
         """
         logger.info(f"Starting indexing of codebase at: {self.codebase_path}")
         
@@ -61,6 +64,8 @@ class CodebaseIndexer:
                 logger.error(f"Error processing file {file_path}: {e}")
         
         logger.info(f"Indexing complete. Processed {len(self.indexed_files)} files and created {len(self.code_chunks)} chunks")
+        
+        return self.code_chunks
 
     def _traverse_codebase(self) -> List[Path]:
         """
@@ -354,3 +359,48 @@ class CodebaseIndexer:
             List of code chunks
         """
         return self.code_chunks
+
+    def process_codebase(self, vector_store):
+        """
+        Process the codebase and add embeddings to the vector store.
+        
+        Args:
+            vector_store: Vector store to add embeddings to
+        """
+        start_time = time.time()
+        processed_chunks = 0
+        skipped_files = 0
+        
+        for file_path, file_data in self.indexed_files.items():
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                
+                if not content:
+                    logger.debug(f"Skipping file {file_path} as it's empty.")
+                    continue
+                
+                chunks = self._create_chunks(content, file_path, file_data['language'], file_data)
+                
+                for chunk_index, chunk in enumerate(chunks):
+                    chunk_id = chunk['id']
+                    chunk_content = chunk['code']
+                    
+                    try:
+                        embedding = self.embedding_client.generate_embedding(chunk_content)
+                        
+                        if embedding is not None:
+                            vector_store.add_embedding(chunk_id, embedding, chunk)
+                            logger.debug(f"Successfully added embedding for chunk: {chunk_id} from {file_path}")
+                            processed_chunks += 1
+                        else:
+                            logger.warning(f"Failed to generate embedding for chunk {chunk_index} in {file_path}")
+                    except Exception as e:
+                        logger.error(f"Error processing chunk {chunk_index} in {file_path}: {e}")
+            except Exception as e:
+                logger.error(f"Error processing file {file_path}: {e}")
+                skipped_files += 1
+
+        end_time = time.time()
+        duration = end_time - start_time
+        logger.info(f"Codebase indexing completed in {duration:.2f} seconds.")
